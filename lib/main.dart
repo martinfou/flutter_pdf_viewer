@@ -3,8 +3,13 @@ import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:io';
 import 'package:intl/intl.dart';
+import 'database_helper.dart'; // Add this import
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 void main() {
+  sqfliteFfiInit();
+  databaseFactory = databaseFactoryFfi;
+
   runApp(const MyApp());
 }
 
@@ -61,14 +66,35 @@ class PDFViewerPage extends StatefulWidget {
 
 class _PDFViewerPageState extends State<PDFViewerPage> {
   String? _selectedFile;
-  String? _selectedOption;
+  String? _selectedDocumentType;
   String? _selectedProject;
+  String? _selectedVendor;
   DateTime? _selectedDate;
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _dateController = TextEditingController();
 
-  final List<String> _options = ['document', 'facture', 'identification'];
-  final List<String> _projects = ['des ecluses', 'compica', 'saint-Laurent', 'edouard'];
+  List<String> _documentTypes = [];
+  List<String> _projects = [];
+  List<String> _vendors = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchDropdownData();
+  }
+
+  Future<void> _fetchDropdownData() async {
+    final dbHelper = DatabaseHelper();
+    final documentTypes = await dbHelper.getDocumentTypes();
+    final projects = await dbHelper.getProjects();
+    final vendors = await dbHelper.getVendors();
+    if (!mounted) return;
+    setState(() {
+      _documentTypes = documentTypes;
+      _projects = projects;
+      _vendors = vendors;
+    });
+  }
 
   Future<void> _pickPdfFile() async {
     final result = await FilePicker.platform.pickFiles(
@@ -85,11 +111,11 @@ class _PDFViewerPageState extends State<PDFViewerPage> {
   }
 
   Future<void> _renameFile() async {
-    if (_selectedFile != null && _selectedOption != null && _selectedProject != null && _selectedDate != null) {
+    if (_selectedFile != null && _selectedDocumentType != null && _selectedProject != null && _selectedDate != null) {
       final file = File(_selectedFile!);
       final directory = file.parent;
       String formattedDate = DateFormat('yyyy-MM-dd').format(_selectedDate!);
-      final newFileName = '${_selectedProject}_${_selectedOption}_$formattedDate.pdf';
+      final newFileName = '${_selectedProject}_${_selectedDocumentType}_$formattedDate.pdf';
       final newPath = '${directory.path}/$newFileName';
       final newFile = await file.rename(newPath);
       if (!mounted) return;
@@ -118,6 +144,37 @@ class _PDFViewerPageState extends State<PDFViewerPage> {
     }
   }
 
+  Future<void> _showEditDialog({String? initialText, required Function(String) onSubmit}) async {
+    final TextEditingController controller = TextEditingController(text: initialText);
+    await showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(initialText == null ? 'Add Project' : 'Edit Project'),
+          content: TextField(
+            controller: controller,
+            decoration: const InputDecoration(labelText: 'Project Name'),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                onSubmit(controller.text);
+                Navigator.of(context).pop();
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   void dispose() {
     _descriptionController.dispose();
@@ -132,40 +189,24 @@ class _PDFViewerPageState extends State<PDFViewerPage> {
         title: const Text('PDF Viewer'),
         actions: <Widget>[
           const SizedBox(width: 16),
-          DropdownButton<String>(
-            value: _selectedOption,
-            hint: const Text('Select Type'),
-            items: _options.map<DropdownMenuItem<String>>((String value) {
-              return DropdownMenuItem<String>(
-                value: value,
-                child: Text(value),
-              );
-            }).toList(),
+          _buildDocumentTypeDropdown(
+            value: _selectedDocumentType,
+            hint: 'Select Document Type',
+            items: _documentTypes,
             onChanged: (String? newValue) {
               setState(() {
-                _selectedOption = newValue;
+                _selectedDocumentType = newValue;
               });
             },
           ),
           const SizedBox(width: 16),
-          DropdownButton<String>(
-            value: _selectedProject,
-            hint: const Text('Select Project'),
-            items: _projects.map<DropdownMenuItem<String>>((String value) {
-              return DropdownMenuItem<String>(
-                value: value,
-                child: Text(value),
-              );
-            }).toList(),
-            onChanged: (String? newValue) {
-              setState(() {
-                _selectedProject = newValue;
-              });
-            },
-            style: const TextStyle(color: Colors.white),
-            dropdownColor: Colors.blue,
-          ),
+          _buildProjectDropdown(),
           const SizedBox(width: 16),
+          _buildVendorDropdown(value: _selectedVendor, hint: 'Select Vendor', items: _vendors, onChanged: (String? newValue) {
+            setState(() {
+              _selectedVendor = newValue;
+            });
+          }),
           TextButton(
             onPressed: _pickDate,
             style: TextButton.styleFrom(
@@ -175,30 +216,11 @@ class _PDFViewerPageState extends State<PDFViewerPage> {
             child: const Text('Pick Date'),
           ),
           const SizedBox(width: 16),
-           SizedBox(
-            width: 150,
-            child: TextField(
-              controller: _dateController,
-              decoration: const InputDecoration(
-                labelText: 'Selected Date',
-                border: OutlineInputBorder(),
-              ),
-              readOnly: true,
-            ),
-          ),
+          _buildDateTextField(),
           const SizedBox(width: 16),
-          SizedBox(
-            width: 150,
-            child: TextField(
-              controller: _descriptionController,
-              decoration: const InputDecoration(
-                labelText: 'Description',
-                border: OutlineInputBorder(),
-              ),
-            ),
-          ),
+          _buildDescriptionTextField(),
           const SizedBox(width: 16),
-         TextButton(
+          TextButton(
             onPressed: _renameFile,
             style: TextButton.styleFrom(
               foregroundColor: Colors.white,
@@ -216,6 +238,129 @@ class _PDFViewerPageState extends State<PDFViewerPage> {
         onPressed: _pickPdfFile,
         tooltip: 'Pick PDF',
         child: const Icon(Icons.add),
+      ),
+    );
+  }
+
+    Widget _buildVendorDropdown({
+    required String? value,
+    required String hint,
+    required List<String> items,
+    required ValueChanged<String?> onChanged,
+  }) {
+    return DropdownButton<String>(
+      value: value,
+      hint: Text(hint),
+      items: items.map<DropdownMenuItem<String>>((String value) {
+        return DropdownMenuItem<String>(
+          value: value,
+          child: Text(value),
+        );
+      }).toList(),
+      onChanged: onChanged,
+      style: const TextStyle(color: Colors.black), // Set text color for selected value
+      dropdownColor: Colors.white, // Set background color for dropdown menu
+    );
+  }
+
+  Widget _buildDocumentTypeDropdown({
+    required String? value,
+    required String hint,
+    required List<String> items,
+    required ValueChanged<String?> onChanged,
+  }) {
+    return DropdownButton<String>(
+      value: value,
+      hint: Text(hint),
+      items: items.map<DropdownMenuItem<String>>((String value) {
+        return DropdownMenuItem<String>(
+          value: value,
+          child: Text(value),
+        );
+      }).toList(),
+      onChanged: onChanged,
+      style: const TextStyle(color: Colors.black), // Set text color for selected value
+      dropdownColor: Colors.white, // Set background color for dropdown menu
+    );
+  }
+
+  Widget _buildProjectDropdown() {
+    return DropdownButton<String>(
+      value: _selectedProject,
+      hint: const Text('Select Project'),
+      items: [
+        ..._projects.map<DropdownMenuItem<String>>((String value) {
+          return DropdownMenuItem<String>(
+            value: value,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(value),
+                IconButton(
+                  icon: const Icon(Icons.edit),
+                  onPressed: () {
+                    _showEditDialog(
+                      initialText: value,
+                      onSubmit: (newName) async {
+                        final dbHelper = DatabaseHelper();
+                        await dbHelper.updateProject(value, newName);
+                        _fetchDropdownData();
+                      },
+                    );
+                  },
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+        const DropdownMenuItem<String>(
+          value: 'add_new',
+          child: Text('Add New Project'),
+        ),
+      ],
+      onChanged: (String? newValue) {
+        if (newValue == 'add_new') {
+          _showEditDialog(
+            onSubmit: (newName) async {
+              final dbHelper = DatabaseHelper();
+              await dbHelper.insertProject(newName);
+              _fetchDropdownData();
+            },
+          );
+        } else {
+          setState(() {
+            _selectedProject = newValue;
+          });
+        }
+      },
+      style: const TextStyle(color: Colors.black), // Set text color for selected value
+      dropdownColor: Colors.white, // Set background color for dropdown menu
+    );
+  }
+
+  Widget _buildDateTextField() {
+    return SizedBox(
+      width: 150,
+      child: TextField(
+        controller: _dateController,
+        decoration: const InputDecoration(
+          labelText: 'Selected Date',
+          border: OutlineInputBorder(),
+        ),
+        readOnly: true,
+      ),
+    );
+  }
+
+  Widget _buildDescriptionTextField() {
+    return SizedBox(
+      width: 150,
+      child: TextField(
+        controller: _descriptionController,
+        decoration: const InputDecoration(
+          labelText: 'Description',
+          border: OutlineInputBorder(),
+        ),
       ),
     );
   }
