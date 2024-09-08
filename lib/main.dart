@@ -1,19 +1,53 @@
 import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:intl/intl.dart';
 import 'dart:io';
+import 'package:intl/intl.dart';
 
 void main() {
-  runApp(MyApp());
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Flutter PDF Viewer Demo',
-      home: PDFViewerPage(),
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+        hintColor: Colors.orange,
+        textTheme: const TextTheme(
+          displayLarge: TextStyle(fontSize: 32.0, fontWeight: FontWeight.bold, color: Colors.blue),
+          titleLarge: TextStyle(fontSize: 20.0, fontStyle: FontStyle.italic, color: Colors.blue),
+          bodyMedium: TextStyle(fontSize: 14.0, fontFamily: 'Hind', color: Colors.black),
+        ),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.blue,
+          titleTextStyle: TextStyle(color: Colors.white, fontSize: 20.0, fontWeight: FontWeight.bold),
+        ),
+        buttonTheme: const ButtonThemeData(
+          buttonColor: Colors.blue,
+          textTheme: ButtonTextTheme.primary,
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            foregroundColor: Colors.white, backgroundColor: Colors.blue,
+            textStyle: const TextStyle(fontSize: 16.0),
+          ),
+        ),
+        textButtonTheme: TextButtonThemeData(
+          style: TextButton.styleFrom(
+            foregroundColor: Colors.blue, textStyle: const TextStyle(fontSize: 16.0),
+          ),
+        ),
+        floatingActionButtonTheme: const FloatingActionButtonThemeData(
+          backgroundColor: Colors.blue,
+          foregroundColor: Colors.white,
+        ),
+      ),
+      home: const PDFViewerPage(),
     );
   }
 }
@@ -27,21 +61,14 @@ class PDFViewerPage extends StatefulWidget {
 
 class _PDFViewerPageState extends State<PDFViewerPage> {
   String? _selectedFile;
-  String? _selectedOption; // State variable for dropdown selection
-  String? _selectedProject; // State variable for the selected project name
-  final List<String> _options = [
-    'document',
-    'facture',
-    'identification'
-  ]; // Dropdown options
-  final List<String> _projects = [
-    'DesEcluses',
-    'Compica',
-    'Saint-Laurent',
-    'Edouard'
-  ]; // Project names
-  DateTime? _selectedDate; // State variable for the selected date
-  TextEditingController _descriptionController = TextEditingController();
+  String? _selectedOption;
+  String? _selectedProject;
+  DateTime? _selectedDate;
+  final TextEditingController _descriptionController = TextEditingController();
+  final TextEditingController _dateController = TextEditingController();
+
+  final List<String> _options = ['document', 'facture', 'identification'];
+  final List<String> _projects = ['des ecluses', 'compica', 'saint-Laurent', 'edouard'];
 
   Future<void> _pickPdfFile() async {
     final result = await FilePicker.platform.pickFiles(
@@ -50,6 +77,7 @@ class _PDFViewerPageState extends State<PDFViewerPage> {
     );
 
     if (result != null && result.files.single.path != null) {
+      if (!mounted) return;
       setState(() {
         _selectedFile = result.files.single.path;
       });
@@ -57,19 +85,14 @@ class _PDFViewerPageState extends State<PDFViewerPage> {
   }
 
   Future<void> _renameFile() async {
-    if (_selectedFile != null &&
-        _selectedOption != null &&
-        _selectedProject != null &&
-        _selectedDate != null) {
+    if (_selectedFile != null && _selectedOption != null && _selectedProject != null && _selectedDate != null) {
       final file = File(_selectedFile!);
       final directory = file.parent;
-       // Format the date to include only the date portion
       String formattedDate = DateFormat('yyyy-MM-dd').format(_selectedDate!);
-
-      final newFileName =
-          '${_selectedProject}_${_selectedOption}_$formattedDate.pdf'; // Updated file name format // Updated file name format
+      final newFileName = '${_selectedProject}_${_selectedOption}_$formattedDate.pdf';
       final newPath = '${directory.path}/$newFileName';
       final newFile = await file.rename(newPath);
+      if (!mounted) return;
       setState(() {
         _selectedFile = newFile.path;
       });
@@ -79,7 +102,7 @@ class _PDFViewerPageState extends State<PDFViewerPage> {
     }
   }
 
-  Future<void> _pickDate(BuildContext context) async {
+  Future<void> _pickDate() async {
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: _selectedDate ?? DateTime.now(),
@@ -87,10 +110,19 @@ class _PDFViewerPageState extends State<PDFViewerPage> {
       lastDate: DateTime(2025),
     );
     if (picked != null && picked != _selectedDate) {
+      if (!mounted) return;
       setState(() {
         _selectedDate = picked;
+        _dateController.text = DateFormat('yyyy-MM-dd').format(picked);
       });
     }
+  }
+
+  @override
+  void dispose() {
+    _descriptionController.dispose();
+    _dateController.dispose();
+    super.dispose();
   }
 
   @override
@@ -99,21 +131,7 @@ class _PDFViewerPageState extends State<PDFViewerPage> {
       appBar: AppBar(
         title: const Text('PDF Viewer'),
         actions: <Widget>[
-          DropdownButton<String>(
-            value: _selectedProject,
-            hint: const Text('Select Project'),
-            items: _projects.map<DropdownMenuItem<String>>((String value) {
-              return DropdownMenuItem<String>(
-                value: value,
-                child: Text(value),
-              );
-            }).toList(),
-            onChanged: (String? newValue) {
-              setState(() {
-                _selectedProject = newValue;
-              });
-            },
-          ),
+          const SizedBox(width: 16),
           DropdownButton<String>(
             value: _selectedOption,
             hint: const Text('Select Type'),
@@ -129,27 +147,66 @@ class _PDFViewerPageState extends State<PDFViewerPage> {
               });
             },
           ),
+          const SizedBox(width: 16),
+          DropdownButton<String>(
+            value: _selectedProject,
+            hint: const Text('Select Project'),
+            items: _projects.map<DropdownMenuItem<String>>((String value) {
+              return DropdownMenuItem<String>(
+                value: value,
+                child: Text(value),
+              );
+            }).toList(),
+            onChanged: (String? newValue) {
+              setState(() {
+                _selectedProject = newValue;
+              });
+            },
+            style: const TextStyle(color: Colors.white),
+            dropdownColor: Colors.blue,
+          ),
+          const SizedBox(width: 16),
           TextButton(
-            onPressed: () => _pickDate(context),
+            onPressed: _pickDate,
             style: TextButton.styleFrom(
-              backgroundColor: Colors.blue, // Choose an appropriate color
+              foregroundColor: Colors.white,
+              backgroundColor: Colors.blue,
             ),
             child: const Text('Pick Date'),
           ),
-          TextButton(
-            onPressed: () => _pickDate(context),
-            child: Text(_selectedDate == null
-                ? 'Select Date'
-                : 'Date: ${_selectedDate!.day}/${_selectedDate!.month}/${_selectedDate!.year}'),
+          const SizedBox(width: 16),
+           SizedBox(
+            width: 150,
+            child: TextField(
+              controller: _dateController,
+              decoration: const InputDecoration(
+                labelText: 'Selected Date',
+                border: OutlineInputBorder(),
+              ),
+              readOnly: true,
+            ),
           ),
-                   
-          TextButton(
+          const SizedBox(width: 16),
+          SizedBox(
+            width: 150,
+            child: TextField(
+              controller: _descriptionController,
+              decoration: const InputDecoration(
+                labelText: 'Description',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+         TextButton(
             onPressed: _renameFile,
             style: TextButton.styleFrom(
-              backgroundColor: Colors.black, // Dark background color
+              foregroundColor: Colors.white,
+              backgroundColor: Colors.black,
             ),
             child: const Text('Rename'),
           ),
+          const SizedBox(width: 16),
         ],
       ),
       body: _selectedFile == null
