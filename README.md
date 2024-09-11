@@ -7,7 +7,7 @@ Cette application Flutter Desktop a été développée pour simplifier la gestio
 - Affichage PDF : Le fichier PDF sélectionné est affiché à l'écran pour une visualisation immédiate.
 - Renommage automatique : L'application permet de renommer automatiquement des factures, des documents, et des cartes d'identité en suivant un standard prédéfini, garantissant ainsi une organisation cohérente des fichiers.
 
-## Comment Demarrer l'application
+## Comment Demarrer l'application pour developmenet
 ```
 flutter run
 ```
@@ -17,6 +17,11 @@ Microsoft Edge 128.0.2739.42
 [2]: Chrome (chrome)
 [3]: Edge (edge)
 Please choose one (or "q" to quit): 1
+```
+
+## How to build a release version 
+```
+flutter build windows --release
 ```
 ## Observation
 J'ai été agréablement surpris par la simplicité et l'efficacité du framework Flutter. Le langage Dart ne m'a pas semblé trop différent des langages que je connais déjà, comme C, Java ou TypeScript, ce qui a rendu son apprentissage fluide.

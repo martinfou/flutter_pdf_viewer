@@ -55,7 +55,7 @@ class DatabaseHelper {
 
   Future<List<String>> getProjects() async {
     final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query('projects');
+    final List<Map<String, dynamic>> maps = await db.query('projects', orderBy: 'name ASC');
     return List.generate(maps.length, (i) {
       return maps[i]['name'];
     });
@@ -63,7 +63,7 @@ class DatabaseHelper {
 
   Future<List<String>> getDocumentTypes() async {
     final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query('document_types');
+    final List<Map<String, dynamic>> maps = await db.query('document_types', orderBy: 'name ASC');
     return List.generate(maps.length, (i) {
       return maps[i]['name'];
     });
@@ -71,7 +71,7 @@ class DatabaseHelper {
 
   Future<List<String>> getVendors() async {
     final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query('vendors');
+    final List<Map<String, dynamic>> maps = await db.query('vendors', orderBy: 'name ASC');
     return List.generate(maps.length, (i) {
       return maps[i]['name'];
     });

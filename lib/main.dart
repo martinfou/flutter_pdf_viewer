@@ -5,8 +5,14 @@ import 'dart:io';
 import 'package:intl/intl.dart';
 import 'database_helper.dart'; // Add this import
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:logger/logger.dart'; // Import the logger package
+
 
 void main() {
+  var logger = Logger();
+  logger.i('starting app');
+  print('starting app');
+
   sqfliteFfiInit();
   databaseFactory = databaseFactoryFfi;
 
@@ -202,7 +208,7 @@ class _PDFViewerPageState extends State<PDFViewerPage> {
           const SizedBox(width: 16),
           _buildProjectDropdown(),
           const SizedBox(width: 16),
-          _buildVendorDropdown(value: _selectedVendor, hint: 'Select Vendor', items: _vendors, onChanged: (String? newValue) {
+          _buildVendorDropdown(items: _vendors, onChanged: (String? newValue) {
             setState(() {
               _selectedVendor = newValue;
             });
@@ -243,14 +249,12 @@ class _PDFViewerPageState extends State<PDFViewerPage> {
   }
 
     Widget _buildVendorDropdown({
-    required String? value,
-    required String hint,
     required List<String> items,
     required ValueChanged<String?> onChanged,
   }) {
     return DropdownButton<String>(
-      value: value,
-      hint: Text(hint),
+      value: _selectedVendor,
+      hint: const Text('Select Vendor'),
       items: items.map<DropdownMenuItem<String>>((String value) {
         return DropdownMenuItem<String>(
           value: value,
@@ -354,7 +358,7 @@ class _PDFViewerPageState extends State<PDFViewerPage> {
 
   Widget _buildDescriptionTextField() {
     return SizedBox(
-      width: 150,
+      width: 250,
       child: TextField(
         controller: _descriptionController,
         decoration: const InputDecoration(
